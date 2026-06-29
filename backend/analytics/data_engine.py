@@ -15,8 +15,24 @@ class CricketDataEngine:
         self.backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.matches_path = os.path.join(self.backend_dir, "matches_compiled.csv")
         self.deliveries_path = os.path.join(self.backend_dir, "deliveries_compiled.csv")
+        self.matches_pkl_path = os.path.join(self.backend_dir, "matches_cleaned.pkl")
+        self.deliveries_pkl_path = os.path.join(self.backend_dir, "deliveries_cleaned.pkl")
 
-        print("Loading cricket datasets into Pandas...")
+        if os.path.exists(self.matches_pkl_path) and os.path.exists(self.deliveries_pkl_path):
+            print("Loading pre-cleaned cricket datasets from Pickle...")
+            try:
+                self.matches_df = pd.read_pickle(self.matches_pkl_path)
+                self.deliveries_df = pd.read_pickle(self.deliveries_pkl_path)
+                self.bowler_styles = self._load_bowler_styles()
+                print(f"Data engine ready (Pickle). Matches: {len(self.matches_df)}, Deliveries: {len(self.deliveries_df)}")
+                return
+            except Exception as e:
+                print(f"Error loading pickle files, falling back to CSV: {e}")
+
+        self.load_and_clean_from_csv()
+
+    def load_and_clean_from_csv(self):
+        print("Loading cricket datasets into Pandas from CSV...")
         self.matches_df = pd.read_csv(self.matches_path)
         self.deliveries_df = pd.read_csv(self.deliveries_path)
         
@@ -83,74 +99,20 @@ class CricketDataEngine:
         self.deliveries_df['byes'] = pd.to_numeric(self.deliveries_df['byes'], errors='coerce').fillna(0)
         self.deliveries_df['legbyes'] = pd.to_numeric(self.deliveries_df['legbyes'], errors='coerce').fillna(0)
         
-        # Bowler style database (heuristics for top bowlers)
         self.bowler_styles = self._load_bowler_styles()
+
+        try:
+            self.matches_df.to_pickle(self.matches_pkl_path)
+            self.deliveries_df.to_pickle(self.deliveries_pkl_path)
+            print("Saved cleaned datasets to Pickle files.")
+        except Exception as e:
+            print(f"Could not save Pickle files (might be read-only): {e}")
+
         print(f"Data engine ready. Matches: {len(self.matches_df)}, Deliveries: {len(self.deliveries_df)}")
 
     def reload(self):
         print("Reloading datasets...")
-        self.matches_df = pd.read_csv(self.matches_path)
-        self.deliveries_df = pd.read_csv(self.deliveries_path)
-        
-        def map_season(s):
-            s = str(s).strip()
-            if s == '2007/08': return '2008'
-            if s == '2009/10': return '2010'
-            if s == '2020/21': return '2020'
-            return s.split('/')[0]
-            
-        self.matches_df['season'] = self.matches_df['season'].apply(map_season)
-        self.deliveries_df['season'] = self.deliveries_df['season'].apply(map_season)
-
-        def map_venue(v):
-            if not isinstance(v, str): return v
-            v = v.strip()
-            v_lower = v.lower()
-            if 'chinnaswamy' in v_lower: return 'M Chinnaswamy Stadium'
-            if 'wankhede' in v_lower: return 'Wankhede Stadium'
-            if 'eden gardens' in v_lower: return 'Eden Gardens'
-            if 'rajiv gandhi' in v_lower: return 'Rajiv Gandhi International Stadium'
-            if 'chidambaram' in v_lower or 'chepauk' in v_lower: return 'MA Chidambaram Stadium'
-            if 'punjab cricket' in v_lower or 'is bindra' in v_lower or 'pca' in v_lower: return 'Punjab Cricket Association IS Bindra Stadium'
-            if 'sawai mansingh' in v_lower: return 'Sawai Mansingh Stadium'
-            if 'dy patil' in v_lower: return 'Dr DY Patil Sports Academy'
-            if 'brabourne' in v_lower: return 'Brabourne Stadium'
-            if 'maharashtra cricket' in v_lower or 'subrata roy' in v_lower: return 'Maharashtra Cricket Association Stadium'
-            if 'arun jaitley' in v_lower or 'feroz shah' in v_lower: return 'Arun Jaitley Stadium'
-            if 'ekana' in v_lower or 'vajpayee' in v_lower: return 'Ekana Cricket Stadium'
-            if 'sheikh zayed' in v_lower or 'zayed cricket' in v_lower: return 'Sheikh Zayed Stadium'
-            if 'narendra modi' in v_lower or 'motera' in v_lower: return 'Narendra Modi Stadium'
-            if 'himachal pradesh' in v_lower: return 'Himachal Pradesh Cricket Association Stadium'
-            if 'y.s. rajasekhara' in v_lower or 'aca-vdca' in v_lower: return 'Dr. Y.S. Rajasekhara Reddy Cricket Stadium'
-            if 'yadavindra' in v_lower: return 'Maharaja Yadavindra Singh Stadium'
-            if 'veer narayan' in v_lower: return 'Shaheed Veer Narayan Singh Stadium'
-            return v
-
-        self.matches_df['venue'] = self.matches_df['venue'].apply(map_venue)
-        self.deliveries_df['venue'] = self.deliveries_df['venue'].apply(map_venue)
-
-        # Standardise team names to merge Bangalore/Bengaluru and Rising Pune Supergiant variants
-        def map_team(t):
-            if not isinstance(t, str): return t
-            t = t.strip()
-            if t == 'Royal Challengers Bangalore':
-                return 'Royal Challengers Bengaluru'
-            if t == 'Rising Pune Supergiant':
-                return 'Rising Pune Supergiants'
-            return t
-
-        self.matches_df['toss_winner'] = self.matches_df['toss_winner'].apply(map_team)
-        self.matches_df['winner'] = self.matches_df['winner'].apply(map_team)
-        self.matches_df['teams'] = self.matches_df['teams'].apply(lambda x: ",".join([map_team(ti) for ti in str(x).split(',')]) if pd.notna(x) else x)
-        self.deliveries_df['batting_team'] = self.deliveries_df['batting_team'].apply(map_team)
-        self.deliveries_df['bowling_team'] = self.deliveries_df['bowling_team'].apply(map_team)
-        
-        self.deliveries_df['runs_off_bat'] = pd.to_numeric(self.deliveries_df['runs_off_bat'], errors='coerce').fillna(0).astype(int)
-        self.deliveries_df['extras'] = pd.to_numeric(self.deliveries_df['extras'], errors='coerce').fillna(0).astype(int)
-        self.deliveries_df['wides'] = pd.to_numeric(self.deliveries_df['wides'], errors='coerce').fillna(0)
-        self.deliveries_df['noballs'] = pd.to_numeric(self.deliveries_df['noballs'], errors='coerce').fillna(0)
-        self.deliveries_df['byes'] = pd.to_numeric(self.deliveries_df['byes'], errors='coerce').fillna(0)
-        self.deliveries_df['legbyes'] = pd.to_numeric(self.deliveries_df['legbyes'], errors='coerce').fillna(0)
+        self.load_and_clean_from_csv()
 
     def _load_bowler_styles(self):
         # A dictionary mapping popular IPL bowlers to Spin or Pace
