@@ -25,6 +25,10 @@ export default function App() {
   const [progressionMatchId, setProgressionMatchId] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const handleLogoClick = () => {
+    window.location.href = '/';
+  };
+
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'players', label: 'Players', icon: User },
@@ -42,7 +46,11 @@ export default function App() {
       <aside className="app-sidebar">
         <div>
           {/* Logo / Header */}
-          <div className="sidebar-logo" style={{ marginBottom: '30px' }}>
+          <div 
+            className="sidebar-logo" 
+            style={{ marginBottom: '30px', cursor: 'pointer' }}
+            onClick={handleLogoClick}
+          >
             <div className="logo-icon" style={{ background: '#2563eb' }}>
               <Trophy className="w-5 h-5 text-white" />
             </div>
@@ -80,7 +88,10 @@ export default function App() {
             <Menu className="w-6 h-6" />
           </button>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            onClick={handleLogoClick}
+          >
             <Trophy className="w-5 h-5 text-cyan-400" />
             <span className="logo-text text-white">cricAnalytics</span>
           </div>
@@ -94,7 +105,10 @@ export default function App() {
             <div className="mobile-drawer-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
             <div className="mobile-drawer">
               <div className="mobile-drawer-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div 
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                  onClick={handleLogoClick}
+                >
                   <Trophy className="w-5 h-5 text-cyan-400" />
                   <span className="logo-text text-white">cricAnalytics</span>
                 </div>
